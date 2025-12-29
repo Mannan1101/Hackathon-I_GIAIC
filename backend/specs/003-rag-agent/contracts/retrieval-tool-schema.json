@@ -1,0 +1,32 @@
+{
+  "type": "function",
+  "function": {
+    "name": "retrieve_documentation",
+    "description": "Search the book documentation for relevant information based on a question or topic. Returns chunks of text from the book with metadata about their source (page titles, section headings, URLs). Use this tool BEFORE answering any question to retrieve factual information from the book content.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "The question or topic to search for in the documentation. Should be the user's question or a rephrased version focused on key concepts."
+        },
+        "top_k": {
+          "type": "integer",
+          "description": "Number of most relevant chunks to retrieve. Increase if more context is needed for complex questions. Default: 5",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20
+        },
+        "similarity_threshold": {
+          "type": "number",
+          "description": "Minimum similarity score for results (0.0-1.0). Lower values return more results but may be less relevant. Default: 0.0",
+          "default": 0.0,
+          "minimum": 0.0,
+          "maximum": 1.0
+        }
+      },
+      "required": ["query"],
+      "additionalProperties": false
+    }
+  }
+}

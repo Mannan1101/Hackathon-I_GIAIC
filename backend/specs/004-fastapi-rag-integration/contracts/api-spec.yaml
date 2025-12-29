@@ -1,0 +1,336 @@
+openapi: 3.0.3
+info:
+  title: RAG Chatbot API
+  description: |
+    FastAPI REST API for querying a Physical AI & Humanoid Robotics textbook using Retrieval-Augmented Generation (RAG).
+
+    This API connects a Docusaurus frontend chatbot to a backend RAG agent that retrieves relevant document chunks
+    and generates answers using a large language model.
+
+    **Features:**
+    - Single-turn query answering
+    - Retrieval from Qdrant vector database
+    - LLM-powered answer generation
+    - CORS enabled for local development
+
+    **Base URL:** http://127.0.0.1:8000
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+
+servers:
+  - url: http://127.0.0.1:8000
+    description: Local development server
+
+tags:
+  - name: chat
+    description: Chat query operations
+  - name: health
+    description: Health check and monitoring
+
+paths:
+  /chat:
+    post:
+      tags:
+        - chat
+      summary: Submit a question to the RAG chatbot
+      description: |
+        Send a question about the Physical AI & Humanoid Robotics textbook.
+        The agent retrieves relevant document chunks and generates an answer.
+
+        **Processing flow:**
+        1. Validate request (question length, format)
+        2. Embed the question using OpenAI embeddings
+        3. Retrieve top-k similar chunks from Qdrant
+        4. Generate answer using LLM with retrieved context
+        5. Return answer to frontend
+
+        **Timeout:** 30 seconds
+      operationId: chat_query
+      requestBody:
+        description: User's question about the textbook
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            examples:
+              basic_question:
+                summary: Basic course question
+                value:
+                  question: "What are the prerequisites for this course?"
+              technical_question:
+                summary: Technical concept question
+                value:
+                  question: "Explain the difference between physical AI and traditional AI"
+              specific_topic:
+                summary: Specific topic question
+                value:
+                  question: "How does sensor fusion work in humanoid robots?"
+      responses:
+        '200':
+          description: Successful response with answer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+              examples:
+                successful_answer:
+                  summary: Successful answer with sources
+                  value:
+                    answer: "The prerequisites for this course include: 1) Basic programming skills in Python, 2) Linear algebra and calculus fundamentals, 3) Understanding of probability and statistics. No prior robotics experience is required."
+                    sources:
+                      - "Chapter 1: Introduction, Section 1.4 - Prerequisites"
+                      - "Syllabus, p.2"
+                    metadata:
+                      retrieval_time_ms: 150
+                      generation_time_ms: 1200
+        '400':
+          description: Bad request (e.g., whitespace-only question after processing)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "validation_error"
+                message: "Question cannot be empty or whitespace-only"
+                detail:
+                  field: "question"
+                  provided: "   "
+        '422':
+          description: Validation error (Pydantic)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              example:
+                detail:
+                  - type: "string_too_short"
+                    loc: ["body", "question"]
+                    msg: "String should have at least 1 character"
+                    input: ""
+        '500':
+          description: Internal server error (agent failure, retrieval error, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                agent_error:
+                  summary: Agent execution failure
+                  value:
+                    error: "agent_error"
+                    message: "RAG agent failed to process query"
+                    detail:
+                      exception: "ValueError: No relevant chunks found"
+                retrieval_error:
+                  summary: Vector database error
+                  value:
+                    error: "retrieval_error"
+                    message: "Failed to retrieve document chunks"
+                    detail:
+                      qdrant_error: "Connection refused"
+        '504':
+          description: Gateway timeout (query exceeded time limit)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "timeout_error"
+                message: "Query processing exceeded 30 second timeout"
+                detail:
+                  elapsed_time_ms: 30500
+
+  /health:
+    get:
+      tags:
+        - health
+      summary: Health check endpoint
+      description: |
+        Check if the API server is running and ready to accept requests.
+
+        **Returns:**
+        - `status`: "healthy" if all systems operational
+        - `agent`: Agent initialization status
+        - `vector_db`: Vector database connection status
+      operationId: health_check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "healthy"
+                agent: "initialized"
+                vector_db: "connected"
+                timestamp: "2025-12-28T12:00:00Z"
+        '503':
+          description: Service unavailable (degraded state)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "unhealthy"
+                agent: "initialized"
+                vector_db: "disconnected"
+                timestamp: "2025-12-28T12:00:00Z"
+
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - question
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: "User's question about the Physical AI & Humanoid Robotics textbook"
+          example: "What are the prerequisites for this course?"
+      description: "Request payload for chat endpoint"
+
+    ChatResponse:
+      type: object
+      required:
+        - answer
+      properties:
+        answer:
+          type: string
+          description: "Agent's response to the user's question, generated using RAG"
+          example: "Physical AI refers to artificial intelligence systems that can perceive, reason about, and interact with the physical world through sensors and actuators."
+        sources:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: "Optional: List of document chunks used to generate the answer (for citation/transparency)"
+          example:
+            - "Chapter 1, Section 1.2: Defining Physical AI"
+            - "Chapter 3, p.42: Sensing and Actuation"
+        metadata:
+          type: object
+          nullable: true
+          description: "Optional: Additional response metadata (retrieval time, confidence, etc.)"
+          properties:
+            retrieval_time_ms:
+              type: number
+              format: float
+              description: "Time spent retrieving document chunks (milliseconds)"
+              example: 150
+            generation_time_ms:
+              type: number
+              format: float
+              description: "Time spent generating the answer (milliseconds)"
+              example: 1200
+            confidence:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 1
+              description: "Confidence score for the answer (0-1)"
+              example: 0.92
+          additionalProperties: true
+      description: "Successful response from the chat endpoint"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          enum:
+            - validation_error
+            - agent_error
+            - retrieval_error
+            - timeout_error
+            - server_error
+          description: "Error type identifier"
+          example: "agent_error"
+        message:
+          type: string
+          description: "Human-readable error description for developers"
+          example: "RAG agent failed to process the query"
+        detail:
+          type: object
+          nullable: true
+          description: "Additional error context (stack trace, validation errors, etc.)"
+          additionalProperties: true
+          example:
+            agent_exception: "TimeoutError: Query exceeded 30 seconds"
+      description: "Error response format for all error scenarios"
+
+    ValidationError:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: "Validation error type"
+                example: "string_too_short"
+              loc:
+                type: array
+                items:
+                  type: string
+                description: "Location of the validation error"
+                example: ["body", "question"]
+              msg:
+                type: string
+                description: "Human-readable error message"
+                example: "String should have at least 1 character"
+              input:
+                description: "The input value that failed validation"
+                example: ""
+              ctx:
+                type: object
+                nullable: true
+                description: "Additional validation context"
+                example:
+                  min_length: 1
+      description: "FastAPI/Pydantic validation error format (HTTP 422)"
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - unhealthy
+          description: "Overall service health status"
+          example: "healthy"
+        agent:
+          type: string
+          description: "Agent initialization status"
+          example: "initialized"
+        vector_db:
+          type: string
+          description: "Vector database connection status"
+          example: "connected"
+        timestamp:
+          type: string
+          format: date-time
+          description: "Timestamp of health check (ISO 8601)"
+          example: "2025-12-28T12:00:00Z"
+      description: "Health check response"
+
+security: []
+
+externalDocs:
+  description: Find more information about the RAG system
+  url: https://github.com/example/rag-chatbot

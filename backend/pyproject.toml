@@ -1,0 +1,22 @@
+[project]
+name = "doc-rag-ingestion"
+version = "0.1.0"
+description = "Documentation RAG ingestion pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.25.0",
+    "beautifulsoup4>=4.12.0",
+    "cohere>=4.40.0",
+    "qdrant-client>=1.7.0",
+    "python-dotenv>=1.0.0",
+    "tenacity>=8.2.0",
+    "openai-agents>=0.1.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+]

@@ -1,0 +1,4 @@
+# Git Remote Backup
+Original remote from my-physical-ai-book:
+origin	https://github.com/Mannan1101/hackathon_1.git (fetch)
+origin	https://github.com/Mannan1101/hackathon_1.git (push)

@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Retrieval Tool Response Schema",
+  "description": "Schema for the JSON response returned by the retrieve_documentation tool",
+  "type": "object",
+  "properties": {
+    "results": {
+      "type": "array",
+      "description": "List of retrieved chunks from the book documentation",
+      "items": {
+        "type": "object",
+        "properties": {
+          "chunk_text": {
+            "type": "string",
+            "description": "The actual text content of the retrieved chunk"
+          },
+          "page_title": {
+            "type": "string",
+            "description": "Title of the page/chapter this chunk comes from (e.g., 'Chapter 2: Installation')"
+          },
+          "section_heading": {
+            "type": ["string", "null"],
+            "description": "Section heading within the page (e.g., 'Prerequisites'), or null if not available"
+          },
+          "source_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to the source page where this chunk can be found"
+          },
+          "similarity_score": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Similarity score indicating relevance to the query (0.0-1.0, higher is more relevant)"
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "1-based ranking of this result by relevance"
+          }
+        },
+        "required": ["chunk_text", "page_title", "source_url", "similarity_score", "rank"],
+        "additionalProperties": false
+      }
+    },
+    "total_results": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of chunks returned (should match length of results array)"
+    },
+    "query": {
+      "type": "string",
+      "description": "Echo of the original query that was searched for"
+    },
+    "error": {
+      "type": ["string", "null"],
+      "description": "Error message if retrieval failed, otherwise null"
+    }
+  },
+  "required": ["results", "total_results", "query"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "results": [
+        {
+          "chunk_text": "Before installing, ensure you have Python 3.11 or higher and Git installed on your system. You will also need access to the internet to download dependencies.",
+          "page_title": "Chapter 1: Getting Started",
+          "section_heading": "Prerequisites",
+          "source_url": "https://hackathon-1-eight-pi.vercel.app/chapter-01",
+          "similarity_score": 0.856,
+          "rank": 1
+        },
+        {
+          "chunk_text": "The software requires at least 4GB of RAM and 10GB of free disk space.",
+          "page_title": "Resources: Hardware Requirements",
+          "section_heading": null,
+          "source_url": "https://hackathon-1-eight-pi.vercel.app/resources/hardware-requirements",
+          "similarity_score": 0.742,
+          "rank": 2
+        }
+      ],
+      "total_results": 2,
+      "query": "What are the prerequisites?"
+    },
+    {
+      "results": [],
+      "total_results": 0,
+      "query": "What is the weather today?",
+      "error": null
+    },
+    {
+      "results": [],
+      "total_results": 0,
+      "query": "How to install?",
+      "error": "Failed to connect to Qdrant: connection timeout"
+    }
+  ]
+}
